@@ -1,3 +1,5 @@
+[![Build Status](https://secure.travis-ci.org/wpjunior/tornado-retry-client.png)](http://travis-ci.org/wpjunior/tornado-retry-client)
+
 Simple Example
 --------------
 
