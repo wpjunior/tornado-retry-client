@@ -18,4 +18,4 @@ autopep8:
 	autopep8 -r -i tests/
 
 upload:
-	python ./setup.py sdist upload -r pypi-local
+	python ./setup.py sdist upload -r pypi
