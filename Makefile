@@ -10,11 +10,11 @@ test_unit:
 	rm -Rf .coverage
 
 flake8:
-	flake8 ${PYTHON_MODULE}.py
+	flake8 ${PYTHON_MODULE}
 	flake8 tests/
 
 autopep8:
-	autopep8 -r -i ${PYTHON_MODULE}.py
+	autopep8 -r -i ${PYTHON_MODULE}
 	autopep8 -r -i tests/
 
 upload:

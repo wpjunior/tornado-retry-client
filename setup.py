@@ -2,7 +2,7 @@
 
 from setuptools import find_packages, setup
 
-version = '0.1.0'
+version = '0.1.1'
 
 setup(
     name='tornado-retry-client',
@@ -10,9 +10,9 @@ setup(
     description='Simple retry tornado http client',
     long_description='',
     classifiers=[],
-    keywords='push-stream',
-    author='Backstage Team',
-    author_email='backstage@corp.globo.com',
+    keywords='tornado retry client',
+    author='Wilson Júnior',
+    author_email='wilsonpjunior@gmail.com',
     url='https://github.com/wpjunior/tornado-retry-client',
     license='MIT',
     include_package_data=True,
