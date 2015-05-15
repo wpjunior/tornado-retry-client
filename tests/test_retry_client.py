@@ -31,6 +31,12 @@ class TestRetryClient(AsyncTestCase):
 
         self.http_client.fetch.return_value = gen_fetch
 
+    def _generate_exception(self):
+        gen_fetch = gen.Future()
+        gen_fetch.set_exception(Exception('Generic exception'))
+
+        self.http_client.fetch.return_value = gen_fetch
+
     @gen_test
     def test_socket_error_with_retry(self):
         self._generate_fetch_socket_error()
@@ -82,6 +88,24 @@ class TestRetryClient(AsyncTestCase):
     @gen_test
     def test_http_error_with_retry2(self):
         self._generate_fetch_http_error(500)
+        self.retry_client.max_retries = 5
+        self.retry_client.retry_start_timeout = 0  # 0 ** 2 = 0
+
+        raised_error = False
+        request = MagicMock()
+
+        try:
+            yield self.retry_client.fetch(request)
+        except FailedRequest as error:
+            self.assertEqual(error.args[0], 'Max request retries')
+            raised_error = True
+
+        self.assertTrue(raised_error)
+        self.assertEqual(self.retry_client.http_client.fetch.call_count, 5)
+
+    @gen_test
+    def test_exception(self):
+        self._generate_exception()
         self.retry_client.max_retries = 5
         self.retry_client.retry_start_timeout = 0  # 0 ** 2 = 0
 

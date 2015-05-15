@@ -66,6 +66,12 @@ class RetryClient(object):
 
             raise RetryRequest
 
+        except Exception as e:
+            self.logger.error('Generic error')
+            self.logger.exception(e)
+
+            raise RetryRequest
+
         else:
             raise gen.Return(response)
 
