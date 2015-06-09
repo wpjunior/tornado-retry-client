@@ -80,6 +80,8 @@ class TestRetryClient(AsyncTestCase):
             yield self.retry_client.fetch(request)
         except FailedRequest as error:
             self.assertEqual(error.args[0], 'Invalid response')
+            self.assertIsInstance(error.reason, HTTPError)
+            self.assertEqual(error.reason.code, 422)
             raised_error = True
 
         self.assertTrue(raised_error)
@@ -98,6 +100,8 @@ class TestRetryClient(AsyncTestCase):
             yield self.retry_client.fetch(request)
         except FailedRequest as error:
             self.assertEqual(error.args[0], 'Max request retries')
+            self.assertIsInstance(error.reason, HTTPError)
+            self.assertEqual(error.reason.code, 500)
             raised_error = True
 
         self.assertTrue(raised_error)
@@ -116,6 +120,9 @@ class TestRetryClient(AsyncTestCase):
             yield self.retry_client.fetch(request)
         except FailedRequest as error:
             self.assertEqual(error.args[0], 'Max request retries')
+            self.assertIsInstance(error.reason, Exception)
+            self.assertEqual(error.reason.args[0], 'Generic exception')
+
             raised_error = True
 
         self.assertTrue(raised_error)

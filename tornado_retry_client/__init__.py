@@ -14,15 +14,21 @@ MAX_RETRY_TIMEOUT = int(os.environ.get('MAX_RETRY_TIMEOUT', '30'))
 MAX_RETRIES = int(os.environ.get('MAX_RETRIES', '30'))
 
 
-class RetryRequest(Exception):
+class RequestException(Exception):
+    def __init__(self, reason, message=''):
+        super(RequestException, self).__init__(message)
+        self.reason = reason
+
+
+class RetryRequest(RequestException):
     pass
 
 
-class StopRequest(Exception):
+class StopRequest(RequestException):
     pass
 
 
-class FailedRequest(Exception):
+class FailedRequest(RequestException):
     pass
 
 
@@ -51,26 +57,26 @@ class RetryClient(object):
                     e.response.body)
 
                 if e.response.code in self.RETRY_HTTP_ERROR_CODES:
-                    raise RetryRequest
+                    raise RetryRequest(reason=e)
 
             else:
                 self.logger.error('[attempt: %d] request failed'
                                   ' [without response]', attempt)
-                raise RetryRequest
+                raise RetryRequest(reason=e)
 
-            raise StopRequest
+            raise StopRequest(reason=e)
 
         except socket.error as e:
             self.logger.error(
                 'Connection error: %d -> %s', e.args[0], e.args[1])
 
-            raise RetryRequest
+            raise RetryRequest(reason=e)
 
         except Exception as e:
             self.logger.error('Generic error')
             self.logger.exception(e)
 
-            raise RetryRequest
+            raise RetryRequest(e)
 
         else:
             raise gen.Return(response)
@@ -83,12 +89,13 @@ class RetryClient(object):
         while True:
             try:
                 response = yield self._do_fetch(request, attempt)
-            except RetryRequest:
+            except RetryRequest as e:
                 attempt += 1
 
                 if attempt > self.max_retries:
                     self.logger.error('Max request retries')
-                    raise FailedRequest('Max request retries')
+                    raise FailedRequest(reason=e.reason,
+                                        message='Max request retries')
 
                 self.logger.warn('Trying again in %s seconds', retry_timeout)
 
@@ -96,9 +103,10 @@ class RetryClient(object):
                 retry_timeout *= 2
                 retry_timeout = min(retry_timeout, self.max_retry_timeout)
 
-            except StopRequest:
+            except StopRequest as e:
                 self.logger.error('Request fail in %d attempts', attempt)
-                raise FailedRequest('Invalid response')
+                raise FailedRequest(reason=e.reason,
+                                    message='Invalid response')
 
             else:
                 self.logger.debug('Request done!, god bless!')
