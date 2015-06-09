@@ -50,6 +50,9 @@ class TestRetryClient(AsyncTestCase):
             yield self.retry_client.fetch(request)
         except FailedRequest as error:
             self.assertEqual(error.args[0], 'Max request retries')
+            self.assertIsInstance(error.reason, socket.error)
+            self.assertEqual(error.reason.args[0], 71)
+            self.assertEqual(error.reason.args[1], 'A socket error')
             raised_error = True
 
         self.assertTrue(raised_error)
