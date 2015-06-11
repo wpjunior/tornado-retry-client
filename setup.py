@@ -2,7 +2,7 @@
 
 from setuptools import find_packages, setup
 
-version = '0.2.1'
+version = '0.2.2'
 
 setup(
     name='tornado-retry-client',

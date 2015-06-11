@@ -60,7 +60,7 @@ class RetryClient(object):
 
             else:
                 self.logger.error('[attempt: %d] request %s failed'
-                                  ' [without response]', attempt request.url)
+                                  ' [without response]', attempt, request.url)
                 raise RetryRequest(reason=e)
 
             raise StopRequest(reason=e)
