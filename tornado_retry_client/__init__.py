@@ -52,23 +52,23 @@ class RetryClient(object):
             response = yield self.http_client.fetch(request)
         except HTTPError as e:
             if e.response:
-                self.logger.error(
-                    '[attempt: %d] request failed: %s', attempt,
-                    e.response.body)
+                self.logger.error('[attempt: %d] request %s failed: %s',
+                                  attempt, request.url, e.response.body)
 
                 if e.response.code in self.RETRY_HTTP_ERROR_CODES:
                     raise RetryRequest(reason=e)
 
             else:
-                self.logger.error('[attempt: %d] request failed'
-                                  ' [without response]', attempt)
+                self.logger.error('[attempt: %d] request %s failed'
+                                  ' [without response]', attempt request.url)
                 raise RetryRequest(reason=e)
 
             raise StopRequest(reason=e)
 
         except socket.error as e:
             self.logger.error(
-                'Connection error: %d -> %s', e.args[0], e.args[1])
+                'Connection error (%s): %d -> %s', request.url,
+                e.args[0], e.args[1])
 
             raise RetryRequest(reason=e)
 
