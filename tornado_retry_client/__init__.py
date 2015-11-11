@@ -52,8 +52,9 @@ class RetryClient(object):
             response = yield self.http_client.fetch(request)
         except HTTPError as e:
             if e.response:
-                self.logger.error('[attempt: %d] request %s failed: %s',
-                                  attempt, request.url, e.response.body)
+                self.logger.error(u'[attempt: %d] request %s failed: %s',
+                                  attempt, request.url,
+                                  e.response.body.decode('utf-8'))
 
                 if e.response.code in self.RETRY_HTTP_ERROR_CODES:
                     raise RetryRequest(reason=e)
