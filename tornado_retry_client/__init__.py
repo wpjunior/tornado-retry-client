@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ('RetryClient',)
-
 import os
 import logging
 import socket
 
 from tornado import gen
 from tornado.httpclient import HTTPError, HTTPRequest
+
+__all__ = ('RetryClient',)
 
 RETRY_START_TIMEOUT = int(os.environ.get('RETRY_START_TIMEOUT', '1'))
 MAX_RETRY_TIMEOUT = int(os.environ.get('MAX_RETRY_TIMEOUT', '30'))
