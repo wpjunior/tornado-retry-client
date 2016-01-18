@@ -49,8 +49,8 @@ class TestRetryClient(AsyncTestCase):
         with self.assertRaises(socket.error) as cm:
             yield self.retry_client.fetch(request)
 
-        self.assertEqual(cm.exception[0], 71)
-        self.assertEqual(cm.exception[1], 'A socket error')
+        self.assertEqual(cm.exception.args[0], 71)
+        self.assertEqual(cm.exception.args[1], 'A socket error')
 
         self.assertEqual(self.retry_client.http_client.fetch.call_count, 5)
 
@@ -105,5 +105,5 @@ class TestRetryClient(AsyncTestCase):
         with self.assertRaises(Exception) as cm:
             yield self.retry_client.fetch(request)
 
-        self.assertEqual(cm.exception[0], 'Generic exception')
+        self.assertEqual(cm.exception.args[0], 'Generic exception')
         self.assertEqual(self.retry_client.http_client.fetch.call_count, 5)
