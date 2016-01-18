@@ -8,10 +8,11 @@ from tornado import gen
 from tornado.httpclient import HTTPError
 from tornado.testing import AsyncTestCase, gen_test
 
-from tornado_retry_client import RetryClient, FailedRequest
+from tornado_retry_client import RetryClient
 
 
 class TestRetryClient(AsyncTestCase):
+
     def setUp(self):
         super(TestRetryClient, self).setUp()
 
@@ -43,19 +44,14 @@ class TestRetryClient(AsyncTestCase):
         self.retry_client.max_retries = 5
         self.retry_client.retry_start_timeout = 0  # 0 ** 2 = 0
 
-        raised_error = False
         request = MagicMock()
 
-        try:
+        with self.assertRaises(socket.error) as cm:
             yield self.retry_client.fetch(request)
-        except FailedRequest as error:
-            self.assertEqual(error.args[0], 'Max request retries')
-            self.assertIsInstance(error.reason, socket.error)
-            self.assertEqual(error.reason.args[0], 71)
-            self.assertEqual(error.reason.args[1], 'A socket error')
-            raised_error = True
 
-        self.assertTrue(raised_error)
+        self.assertEqual(cm.exception[0], 71)
+        self.assertEqual(cm.exception[1], 'A socket error')
+
         self.assertEqual(self.retry_client.http_client.fetch.call_count, 5)
 
     @gen_test
@@ -76,18 +72,12 @@ class TestRetryClient(AsyncTestCase):
         self.retry_client.max_retries = 5
         self.retry_client.retry_start_timeout = 0  # 0 ** 2 = 0
 
-        raised_error = False
         request = MagicMock()
 
-        try:
+        with self.assertRaises(HTTPError) as cm:
             yield self.retry_client.fetch(request)
-        except FailedRequest as error:
-            self.assertEqual(error.args[0], 'Invalid response')
-            self.assertIsInstance(error.reason, HTTPError)
-            self.assertEqual(error.reason.code, 422)
-            raised_error = True
 
-        self.assertTrue(raised_error)
+        self.assertEqual(cm.exception.code, 422)
         self.assertEqual(self.retry_client.http_client.fetch.call_count, 1)
 
     @gen_test
@@ -96,18 +86,12 @@ class TestRetryClient(AsyncTestCase):
         self.retry_client.max_retries = 5
         self.retry_client.retry_start_timeout = 0  # 0 ** 2 = 0
 
-        raised_error = False
         request = MagicMock()
 
-        try:
+        with self.assertRaises(HTTPError) as cm:
             yield self.retry_client.fetch(request)
-        except FailedRequest as error:
-            self.assertEqual(error.args[0], 'Max request retries')
-            self.assertIsInstance(error.reason, HTTPError)
-            self.assertEqual(error.reason.code, 500)
-            raised_error = True
 
-        self.assertTrue(raised_error)
+        self.assertEqual(cm.exception.code, 500)
         self.assertEqual(self.retry_client.http_client.fetch.call_count, 5)
 
     @gen_test
@@ -116,17 +100,10 @@ class TestRetryClient(AsyncTestCase):
         self.retry_client.max_retries = 5
         self.retry_client.retry_start_timeout = 0  # 0 ** 2 = 0
 
-        raised_error = False
         request = MagicMock()
 
-        try:
+        with self.assertRaises(Exception) as cm:
             yield self.retry_client.fetch(request)
-        except FailedRequest as error:
-            self.assertEqual(error.args[0], 'Max request retries')
-            self.assertIsInstance(error.reason, Exception)
-            self.assertEqual(error.reason.args[0], 'Generic exception')
 
-            raised_error = True
-
-        self.assertTrue(raised_error)
+        self.assertEqual(cm.exception[0], 'Generic exception')
         self.assertEqual(self.retry_client.http_client.fetch.call_count, 5)

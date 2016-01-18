@@ -15,6 +15,6 @@ def do_my_request()
     try:
         request = HTTPRequest(url='http://globo.com')
         response = yield retry_client.fetch(request)
-    except FailedRequest:
+    except HTTPError:
         pass # My request failed after 2 retries
 ```

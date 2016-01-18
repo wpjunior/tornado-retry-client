@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
-__all__ = ('RetryClient', 'FailedRequest')
+__all__ = ('RetryClient',)
 
 import os
 import logging
 import socket
 
 from tornado import gen
-from tornado.httpclient import HTTPError
+from tornado.httpclient import HTTPError, HTTPRequest
 
 RETRY_START_TIMEOUT = int(os.environ.get('RETRY_START_TIMEOUT', '1'))
 MAX_RETRY_TIMEOUT = int(os.environ.get('MAX_RETRY_TIMEOUT', '30'))
@@ -15,6 +15,7 @@ MAX_RETRIES = int(os.environ.get('MAX_RETRIES', '30'))
 
 
 class RequestException(Exception):
+
     def __init__(self, reason, message=''):
         super(RequestException, self).__init__(message)
         self.reason = reason
@@ -25,10 +26,6 @@ class RetryRequest(RequestException):
 
 
 class StopRequest(RequestException):
-    pass
-
-
-class FailedRequest(RequestException):
     pass
 
 
@@ -47,31 +44,36 @@ class RetryClient(object):
         self.retry_start_timeout = retry_start_timeout
 
     @gen.coroutine
-    def _do_fetch(self, request, attempt=1):
+    def _do_fetch(self, request, args, kwargs, attempt=1):
+        if isinstance(request, HTTPRequest):
+            url = request.url
+        else:
+            url = request
+
         try:
-            response = yield self.http_client.fetch(request)
+            response = yield self.http_client.fetch(request, *args, **kwargs)
         except HTTPError as e:
             if e.response:
                 body = e.response.body
                 if hasattr(body, 'decode'):
                     body = body.decode('utf-8')
-                self.logger.error(u'[attempt: %d] request %s failed: %s',
-                                  attempt, request.url, body)
+                self.logger.error(u'attempt: %d, %s request failed: %s',
+                                  attempt, url, body)
 
                 if e.response.code in self.RETRY_HTTP_ERROR_CODES:
                     raise RetryRequest(reason=e)
 
             else:
-                self.logger.error('[attempt: %d] request %s failed'
-                                  ' [without response]', attempt, request.url)
+                self.logger.error('attempt: %d, %s request failed'
+                                  ' [without response]', attempt, url)
                 raise RetryRequest(reason=e)
 
             raise StopRequest(reason=e)
 
         except socket.error as e:
             self.logger.error(
-                'Connection error (%s): %d -> %s', request.url,
-                e.args[0], e.args[1])
+                'attempt: %d, %s connection error: %s', attempt, url,
+                e)
 
             raise RetryRequest(reason=e)
 
@@ -85,20 +87,20 @@ class RetryClient(object):
             raise gen.Return(response)
 
     @gen.coroutine
-    def fetch(self, request):
+    def fetch(self, request, *args, **kwargs):
         attempt = 1
         retry_timeout = self.retry_start_timeout
 
         while True:
             try:
-                response = yield self._do_fetch(request, attempt)
+                response = yield self._do_fetch(request, args, kwargs, attempt)
             except RetryRequest as e:
                 attempt += 1
 
                 if attempt > self.max_retries:
-                    self.logger.error('Max request retries')
-                    raise FailedRequest(reason=e.reason,
-                                        message='Max request retries')
+                    self.logger.error(
+                        'attempt: %d, max request retries', attempt)
+                    raise e.reason
 
                 self.logger.warn('Trying again in %s seconds', retry_timeout)
 
@@ -108,8 +110,7 @@ class RetryClient(object):
 
             except StopRequest as e:
                 self.logger.error('Request fail in %d attempts', attempt)
-                raise FailedRequest(reason=e.reason,
-                                    message='Invalid response')
+                raise e.reason
 
             else:
                 self.logger.debug('Request done!, god bless!')
