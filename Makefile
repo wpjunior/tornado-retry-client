@@ -1,4 +1,8 @@
 PYTHON_MODULE = tornado_retry_client
+.PHONY: setup clean test test_unit flake8 autopep8 upload
+
+setup:
+	pip install -e .
 
 clean:
 	find . -name "*.pyc" -exec rm '{}' ';'
