@@ -7,7 +7,7 @@ from mock import MagicMock
 from tornado import gen
 from tornado.httpclient import HTTPError
 from tornado.testing import AsyncTestCase, gen_test
-
+from tornado.httpclient import AsyncHTTPClient
 from tornado_retry_client import RetryClient
 
 
@@ -37,6 +37,12 @@ class TestRetryClient(AsyncTestCase):
         gen_fetch.set_exception(Exception('Generic exception'))
 
         self.http_client.fetch.return_value = gen_fetch
+
+    def test_with_default_http_client(self):
+        self.assertEqual(
+            RetryClient().http_client,
+            AsyncHTTPClient()
+        )
 
     @gen_test
     def test_socket_error_with_retry(self):

@@ -13,17 +13,14 @@ pip install tornado-retry-client
 
 ## Usage
 ```python
-from tornado_retry_client import RetryClient, FailedRequest
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+from tornado_retry_client import RetryClient
 
-http_client = AsyncHTTPClient()
-retry_client = RetryClient(http_client, max_retries=2)
+retry_client = RetryClient(max_retries=2)
 
 @gen.coroutine
 def do_my_request()
     try:
-        request = HTTPRequest(url='http://globo.com')
-        response = yield retry_client.fetch(request)
+        response = yield retry_client.fetch('http://globo.com')
     except HTTPError:
         pass # My request failed after 2 retries
 ```

@@ -5,7 +5,7 @@ import logging
 import socket
 
 from tornado import gen
-from tornado.httpclient import HTTPError, HTTPRequest
+from tornado.httpclient import AsyncHTTPClient, HTTPError, HTTPRequest
 
 __all__ = ('RetryClient',)
 
@@ -32,11 +32,15 @@ class StopRequest(RequestException):
 class RetryClient(object):
     RETRY_HTTP_ERROR_CODES = (500, 502, 503, 504)
 
-    def __init__(self, http_client, max_retries=MAX_RETRIES,
+    def __init__(self, http_client=None, max_retries=MAX_RETRIES,
                  max_retry_timeout=MAX_RETRY_TIMEOUT,
                  retry_start_timeout=RETRY_START_TIMEOUT):
 
-        self.http_client = http_client
+        if http_client:
+            self.http_client = http_client
+        else:
+            self.http_client = AsyncHTTPClient()
+
         self.logger = logging.getLogger('RetryClient')
 
         self.max_retries = max_retries
