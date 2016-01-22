@@ -2,16 +2,18 @@ PYTHON_MODULE = tornado_retry_client
 .PHONY: setup clean test test_unit flake8 autopep8 upload
 
 setup:
-	pip install -e .
+	pip install -e .\[tests\]
 
 clean:
 	find . -name "*.pyc" -exec rm '{}' ';'
 
-test: test_unit flake8
+coverage:
+	@coverage report -m --fail-under=10
 
-test_unit:
-	python setup.py test
-	rm -Rf .coverage
+unit test:
+	@coverage run --branch `which nosetests` -v --with-yanc -s tests/
+	$(MAKE) coverage
+	$(MAKE) flake8
 
 flake8:
 	flake8 ${PYTHON_MODULE}

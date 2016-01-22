@@ -1,0 +1,6 @@
+[run]
+omit =
+    test_*.py
+branch = True
+source =
+    tornado_retry_client

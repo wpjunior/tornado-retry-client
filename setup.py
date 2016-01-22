@@ -2,11 +2,9 @@
 
 from setuptools import find_packages, setup
 
-version = '0.2.4'
-
 setup(
     name='tornado-retry-client',
-    version=version,
+    version='0.2.4',
     description='Simple retry tornado http client',
     long_description='',
     classifiers=[],
@@ -22,9 +20,13 @@ setup(
         'tornado',
     ],
     test_suite='nose.collector',
-    tests_require=[
-        'mock',
-        'nose',
-        'coverage'
-    ]
+    extras_require={
+        'tests': [
+            'mock',
+            'nose',
+            'coverage',
+            'flake8',
+            'yanc',
+        ]
+    }
 )

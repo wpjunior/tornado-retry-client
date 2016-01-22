@@ -3,7 +3,7 @@
 # Tornado Retry Client
 Simple retry tornado http client
 
-## Install 
+## Install
 
 with pip:
 
@@ -13,6 +13,20 @@ pip install tornado-retry-client
 
 ## Usage
 ```python
+from tornado.httpclient import AsyncHTTPClient, HTTPError
+from tornado_retry_client import http_retry
+
+http_client = AsyncHTTPClient()
+
+@gen.coroutine
+def do_my_request()
+    try:
+        response = yield http_retry(http_client, 'http://globo.com', attempts=2)
+    except HTTPError:
+        pass # My request failed after 2 retries
+
+# OR
+
 from tornado_retry_client import RetryClient
 
 retry_client = RetryClient(max_retries=2)
