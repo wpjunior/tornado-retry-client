@@ -2,31 +2,16 @@
 
 import os
 import logging
-import socket
 
-from tornado import gen
-from tornado.httpclient import AsyncHTTPClient, HTTPError, HTTPRequest
+from tornado.httpclient import AsyncHTTPClient
+from tornado.concurrent import TracebackFuture
+from tornado.ioloop import IOLoop
+from functools import partial
 
-__all__ = ('RetryClient',)
 
 RETRY_START_TIMEOUT = int(os.environ.get('RETRY_START_TIMEOUT', '1'))
 MAX_RETRY_TIMEOUT = int(os.environ.get('MAX_RETRY_TIMEOUT', '30'))
 MAX_RETRIES = int(os.environ.get('MAX_RETRIES', '30'))
-
-
-class RequestException(Exception):
-
-    def __init__(self, reason, message=''):
-        super(RequestException, self).__init__(message)
-        self.reason = reason
-
-
-class RetryRequest(RequestException):
-    pass
-
-
-class StopRequest(RequestException):
-    pass
 
 
 class RetryClient(object):
@@ -47,75 +32,41 @@ class RetryClient(object):
         self.max_retry_timeout = max_retry_timeout
         self.retry_start_timeout = retry_start_timeout
 
-    @gen.coroutine
-    def _do_fetch(self, request, args, kwargs, attempt=1):
-        if isinstance(request, HTTPRequest):
-            url = request.url
-        else:
-            url = request
-
-        try:
-            response = yield self.http_client.fetch(request, *args, **kwargs)
-        except HTTPError as e:
-            if e.response:
-                body = e.response.body
-                if hasattr(body, 'decode'):
-                    body = body.decode('utf-8')
-                self.logger.error(u'attempt: %d, %s request failed: %s',
-                                  attempt, url, body)
-
-                if e.response.code in self.RETRY_HTTP_ERROR_CODES:
-                    raise RetryRequest(reason=e)
-
-            else:
-                self.logger.error('attempt: %d, %s request failed'
-                                  ' [without response]', attempt, url)
-                raise RetryRequest(reason=e)
-
-            raise StopRequest(reason=e)
-
-        except socket.error as e:
-            self.logger.error(
-                'attempt: %d, %s connection error: %s', attempt, url,
-                e)
-
-            raise RetryRequest(reason=e)
-
-        except Exception as e:
-            self.logger.error('Generic error')
-            self.logger.exception(e)
-
-            raise RetryRequest(e)
-
-        else:
-            raise gen.Return(response)
-
-    @gen.coroutine
     def fetch(self, request, *args, **kwargs):
-        attempt = 1
-        retry_timeout = self.retry_start_timeout
+        return http_retry(
+            self.http_client,
+            request,
+            retry_wait=self.retry_start_timeout,
+            attempts=self.max_retries
+        )
 
-        while True:
-            try:
-                response = yield self._do_fetch(request, args, kwargs, attempt)
-            except RetryRequest as e:
-                attempt += 1
 
-                if attempt > self.max_retries:
-                    self.logger.error(
-                        'attempt: %d, max request retries', attempt)
-                    raise e.reason
+def http_retry(
+        client, request,
+        raise_error=True, attempts=5,
+        retry_wait=1, **kwargs):
+    attempt = 1
+    future = TracebackFuture()
+    ioloop = IOLoop.current()
 
-                self.logger.warn('Trying again in %s seconds', retry_timeout)
+    def _do_request(attempt):
+        http_future = client.fetch(request, raise_error=False, **kwargs)
+        http_future.add_done_callback(partial(handle_response, attempt))
 
-                yield gen.sleep(retry_timeout)
-                retry_timeout *= 2
-                retry_timeout = min(retry_timeout, self.max_retry_timeout)
+    def handle_response(attempt, future_response):
+        attempt += 1
+        result = future_response.result()
+        if result.error and\
+           attempt <= 5 and\
+           result.code >= 500 and\
+           result.code <= 599:
+            logging.error(result.error)
+            logging.error(result.body)
+            return ioloop.call_later(retry_wait, lambda: _do_request(attempt))
+        else:
+            if raise_error and result.error:
+                return future.set_exception(result.error)
+        future.set_result(result)
 
-            except StopRequest as e:
-                self.logger.error('Request fail in %d attempts', attempt)
-                raise e.reason
-
-            else:
-                self.logger.debug('Request done!, god bless!')
-                raise gen.Return(response)
+    _do_request(attempt)
+    return future

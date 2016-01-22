@@ -1,42 +1,27 @@
 # -*- coding: utf-8 -*-
 
-import socket
+from mock import patch
 
-from mock import MagicMock
-
-from tornado import gen
-from tornado.httpclient import HTTPError
-from tornado.testing import AsyncTestCase, gen_test
+import tornado.httpclient
+from tornado.testing import AsyncHTTPTestCase, gen_test
 from tornado.httpclient import AsyncHTTPClient
 from tornado_retry_client import RetryClient
 
+from tests import app
 
-class TestRetryClient(AsyncTestCase):
+
+class TestRetryClient(AsyncHTTPTestCase):
 
     def setUp(self):
         super(TestRetryClient, self).setUp()
+        self.retry_client = RetryClient(
+            self.http_client,
+            max_retries=5,
+            retry_start_timeout=0
+        )
 
-        self.http_client = MagicMock()
-        self.retry_client = RetryClient(self.http_client)
-
-    def _generate_fetch_http_error(self, code=422):
-        response = MagicMock(code=code, body='A Server Error')
-        gen_fetch = gen.Future()
-        gen_fetch.set_exception(HTTPError(code=code, response=response))
-
-        self.http_client.fetch.return_value = gen_fetch
-
-    def _generate_fetch_socket_error(self):
-        gen_fetch = gen.Future()
-        gen_fetch.set_exception(socket.error(71, 'A socket error'))
-
-        self.http_client.fetch.return_value = gen_fetch
-
-    def _generate_exception(self):
-        gen_fetch = gen.Future()
-        gen_fetch.set_exception(Exception('Generic exception'))
-
-        self.http_client.fetch.return_value = gen_fetch
+    def get_app(self):
+        return app.make_app()
 
     def test_with_default_http_client(self):
         self.assertEqual(
@@ -46,70 +31,61 @@ class TestRetryClient(AsyncTestCase):
 
     @gen_test
     def test_socket_error_with_retry(self):
-        self._generate_fetch_socket_error()
-        self.retry_client.max_retries = 5
-        self.retry_client.retry_start_timeout = 0  # 0 ** 2 = 0
+        self.retry_client.http_client = tornado.httpclient.AsyncHTTPClient(
+            force_instance=True,
+            defaults=dict(request_timeout=.1)
+        )
 
-        request = MagicMock()
+        with patch.object(
+            self.retry_client.http_client,
+            'fetch',
+            wraps=self.retry_client.http_client.fetch
+        ) as fetch_mock:
+            with self.assertRaises(tornado.httpclient.HTTPError) as cm:
+                yield self.retry_client.fetch(self.get_url('/timeout'))
 
-        with self.assertRaises(socket.error) as cm:
-            yield self.retry_client.fetch(request)
+        self.assertEqual(cm.exception.args[0], 599)
+        self.assertEqual(cm.exception.args[1], 'Timeout')
 
-        self.assertEqual(cm.exception.args[0], 71)
-        self.assertEqual(cm.exception.args[1], 'A socket error')
-
-        self.assertEqual(self.retry_client.http_client.fetch.call_count, 5)
+        self.assertEqual(fetch_mock.call_count, 5)
 
     @gen_test
     def test_http_success(self):
-        response = MagicMock(code=200, body='Result')
-        gen_fetch = gen.Future()
-        gen_fetch.set_result(response)
-
-        self.http_client.fetch.return_value = gen_fetch
-        request = MagicMock()
-
-        expected_response = yield self.retry_client.fetch(request)
-        self.assertEqual(expected_response, response)
+        response = yield self.retry_client.fetch(self.get_url('/'))
+        self.assertEqual(response.code, 200)
 
     @gen_test
     def test_http_error_with_retry(self):
-        self._generate_fetch_http_error(422)
-        self.retry_client.max_retries = 5
-        self.retry_client.retry_start_timeout = 0  # 0 ** 2 = 0
+        self.retry_client.http_client = tornado.httpclient.AsyncHTTPClient(
+            force_instance=True,
+            defaults=dict(request_timeout=.1)
+        )
 
-        request = MagicMock()
-
-        with self.assertRaises(HTTPError) as cm:
-            yield self.retry_client.fetch(request)
+        with patch.object(
+            self.retry_client.http_client,
+            'fetch',
+            wraps=self.retry_client.http_client.fetch
+        ) as fetch_mock:
+            with self.assertRaises(tornado.httpclient.HTTPError) as cm:
+                yield self.retry_client.fetch(self.get_url('/error_no_retry'))
 
         self.assertEqual(cm.exception.code, 422)
-        self.assertEqual(self.retry_client.http_client.fetch.call_count, 1)
+        self.assertEqual(fetch_mock.call_count, 1)
 
     @gen_test
     def test_http_error_with_retry2(self):
-        self._generate_fetch_http_error(500)
-        self.retry_client.max_retries = 5
-        self.retry_client.retry_start_timeout = 0  # 0 ** 2 = 0
+        self.retry_client.http_client = tornado.httpclient.AsyncHTTPClient(
+            force_instance=True,
+            defaults=dict(request_timeout=.1)
+        )
 
-        request = MagicMock()
-
-        with self.assertRaises(HTTPError) as cm:
-            yield self.retry_client.fetch(request)
+        with patch.object(
+            self.retry_client.http_client,
+            'fetch',
+            wraps=self.retry_client.http_client.fetch
+        ) as fetch_mock:
+            with self.assertRaises(tornado.httpclient.HTTPError) as cm:
+                yield self.retry_client.fetch(self.get_url('/error'))
 
         self.assertEqual(cm.exception.code, 500)
-        self.assertEqual(self.retry_client.http_client.fetch.call_count, 5)
-
-    @gen_test
-    def test_exception(self):
-        self._generate_exception()
-        self.retry_client.max_retries = 5
-        self.retry_client.retry_start_timeout = 0  # 0 ** 2 = 0
-
-        request = MagicMock()
-
-        with self.assertRaises(Exception) as cm:
-            yield self.retry_client.fetch(request)
-
-        self.assertEqual(cm.exception.args[0], 'Generic exception')
-        self.assertEqual(self.retry_client.http_client.fetch.call_count, 5)
+        self.assertEqual(fetch_mock.call_count, 5)
