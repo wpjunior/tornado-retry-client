@@ -3,7 +3,7 @@
 import os
 import logging
 
-from tornado.httpclient import AsyncHTTPClient
+from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 from tornado.concurrent import TracebackFuture
 from tornado.ioloop import IOLoop
 from functools import partial
@@ -15,7 +15,6 @@ MAX_RETRIES = int(os.environ.get('MAX_RETRIES', '30'))
 
 
 class RetryClient(object):
-    RETRY_HTTP_ERROR_CODES = (500, 502, 503, 504)
 
     def __init__(self, http_client=None, max_retries=MAX_RETRIES,
                  max_retry_timeout=MAX_RETRY_TIMEOUT,
@@ -49,6 +48,11 @@ def http_retry(
     future = TracebackFuture()
     ioloop = IOLoop.current()
 
+    if isinstance(request, HTTPRequest):
+        url = request.url
+    else:
+        url = request
+
     def _do_request(attempt):
         http_future = client.fetch(request, raise_error=False, **kwargs)
         http_future.add_done_callback(partial(handle_response, attempt))
@@ -60,8 +64,8 @@ def http_retry(
            attempt <= 5 and\
            result.code >= 500 and\
            result.code <= 599:
-            logging.error(result.error)
-            logging.error(result.body)
+            logging.error(u'attempt: %d, %s request failed: %s, body: %s',
+                          attempt, url, result.error, result.body)
             return ioloop.call_later(retry_wait, lambda: _do_request(attempt))
         else:
             if raise_error and result.error:

@@ -13,9 +13,9 @@ retry_client = RetryClient(http_client, max_retries=2)
 @gen.coroutine
 def do_my_request():
     try:
-        response = yield http_retry(http_client, 'http://httpstat.us/500')
-        print "final: %s" % response.body
-    except Exception, e:
+        response = yield http_retry(http_client, 'http://httpstat.us/500', request_timeout=1)
+        print("final: %s" % response.body)
+    except Exception as e:
         logging.exception(e)
     else:
         print('request done!')
