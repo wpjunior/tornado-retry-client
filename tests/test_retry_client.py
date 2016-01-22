@@ -53,7 +53,6 @@ class TestRetryClient(AsyncHTTPTestCase):
     def test_http_success(self):
         response = yield self.retry_client.fetch(self.get_url('/'))
         self.assertEqual(response.code, 200)
-        self.assertEqual(response.body, 'Hello, world')
 
     @gen_test
     def test_http_error_with_retry(self):
