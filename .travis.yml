@@ -3,9 +3,9 @@ python:
   - "2.7"
   - "3.3"
   - "3.4"
-install:
-  - pip install flake8
-  # Deal with issue on Travis builders re: multiprocessing.Queue :(
-  - "sudo rm -rf /dev/shm && sudo ln -s /run/shm /dev/shm"
+
+sudo: false
+
+install: make setup
 
 script: make test
