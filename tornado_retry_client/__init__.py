@@ -60,6 +60,8 @@ def http_retry(
            attempt <= 5 and\
            result.code >= 500 and\
            result.code <= 599:
+            logging.error(result.error)
+            logging.error(result.body)
             return ioloop.call_later(retry_wait, lambda: _do_request(attempt))
         else:
             if raise_error and result.error:
