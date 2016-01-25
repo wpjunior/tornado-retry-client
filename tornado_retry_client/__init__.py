@@ -60,16 +60,19 @@ def http_retry(
     def handle_response(attempt, future_response):
         attempt += 1
         result = future_response.result()
-        if result.error and\
-           attempt <= 5 and\
-           result.code >= 500 and\
-           result.code <= 599:
+        if result.error:
             logging.error(u'attempt: %d, %s request failed: %s, body: %s',
                           attempt, url, result.error, result.body)
-            return ioloop.call_later(retry_wait, lambda: _do_request(attempt))
-        else:
-            if raise_error and result.error:
-                return future.set_exception(result.error)
+
+            if attempt <= attempts and\
+               result.code >= 500 and\
+               result.code <= 599:
+                return ioloop.call_later(
+                    retry_wait, lambda: _do_request(attempt))
+
+        if raise_error and result.error:
+            return future.set_exception(result.error)
+
         future.set_result(result)
 
     _do_request(attempt)
