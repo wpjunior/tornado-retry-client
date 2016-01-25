@@ -3,7 +3,7 @@
 import os
 import logging
 
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest
+from tornado.httpclient import AsyncHTTPClient
 from tornado.concurrent import TracebackFuture
 from tornado.ioloop import IOLoop
 from functools import partial
@@ -48,11 +48,6 @@ def http_retry(
     future = TracebackFuture()
     ioloop = IOLoop.current()
 
-    if isinstance(request, HTTPRequest):
-        url = request.url
-    else:
-        url = request
-
     def _do_request(attempt):
         http_future = client.fetch(request, raise_error=False, **kwargs)
         http_future.add_done_callback(partial(handle_response, attempt))
@@ -61,8 +56,9 @@ def http_retry(
         attempt += 1
         result = future_response.result()
         if result.error:
-            logging.error(u'attempt: %d, %s request failed: %s, body: %s',
-                          attempt, url, result.error, result.body)
+            logging.error(
+                u'attempt: %d, %s request failed: %s, body: %s',
+                attempt, result.effective_url, result.error, result.body)
 
             if attempt <= attempts and\
                result.code >= 500 and\
