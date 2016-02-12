@@ -84,6 +84,9 @@ def http_retry(
         future.set_result(result)
 
     def handle_exception(attempt, exception):
+        logging.error(
+            u'attempt: %d, request failed by exception: %s',
+            attempt, exception)
         if isinstance(exception, retry_exceptions) and attempt <= attempts:
             return ioloop.call_later(
                 retry_wait, lambda: _do_request(attempt))
