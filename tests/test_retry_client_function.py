@@ -58,3 +58,29 @@ class TestRetryFunction(AsyncHTTPTestCase):
                 self.get_http_client(), self.get_url('/error'),
                 retry_wait=.1
             )
+
+    @gen_test
+    def test_custom_http_client_error(self):
+        class TokenError(Exception):
+            pass
+
+        class MyHttpClient(object):
+            def __init__(self):
+                self.count = 0
+
+            def fetch(self, *args, **kwargs):
+                future = tornado.gen.Future()
+                future.set_exception(TokenError('my token error'))
+                self.count += 1
+                return future
+
+        http_client = MyHttpClient()
+
+        with self.assertRaises(TokenError):
+            yield tornado_retry_client.http_retry(
+                http_client, self.get_url('/'),
+                retry_wait=.1,
+                retry_exceptions=(TokenError,)
+            )
+
+        self.assertEqual(http_client.count, 5)

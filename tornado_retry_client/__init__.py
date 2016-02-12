@@ -18,7 +18,8 @@ class RetryClient(object):
 
     def __init__(self, http_client=None, max_retries=MAX_RETRIES,
                  max_retry_timeout=MAX_RETRY_TIMEOUT,
-                 retry_start_timeout=RETRY_START_TIMEOUT):
+                 retry_start_timeout=RETRY_START_TIMEOUT,
+                 retry_exceptions=None):
 
         if http_client:
             self.http_client = http_client
@@ -30,31 +31,42 @@ class RetryClient(object):
         self.max_retries = max_retries
         self.max_retry_timeout = max_retry_timeout
         self.retry_start_timeout = retry_start_timeout
+        self.retry_exceptions = retry_exceptions
 
     def fetch(self, request, *args, **kwargs):
         return http_retry(
             self.http_client,
             request,
             retry_wait=self.retry_start_timeout,
-            attempts=self.max_retries
+            attempts=self.max_retries,
+            retry_exceptions=self.retry_exceptions,
         )
 
 
 def http_retry(
         client, request,
         raise_error=True, attempts=5,
-        retry_wait=1, **kwargs):
+        retry_wait=1, retry_exceptions=None, **kwargs):
     attempt = 1
     future = TracebackFuture()
     ioloop = IOLoop.current()
 
+    if not retry_exceptions:
+        retry_exceptions = ()
+
     def _do_request(attempt):
         http_future = client.fetch(request, raise_error=False, **kwargs)
-        http_future.add_done_callback(partial(handle_response, attempt))
+        http_future.add_done_callback(partial(handle_future, attempt))
 
-    def handle_response(attempt, future_response):
+    def handle_future(attempt, future_response):
         attempt += 1
-        result = future_response.result()
+        exception = future_response.exception()
+        if exception:
+            return handle_exception(attempt, exception)
+
+        handle_response(attempt, future_response.result())
+
+    def handle_response(attempt, result):
         if result.error:
             logging.error(
                 u'attempt: %d, %s request failed: %s, body: %s',
@@ -70,6 +82,13 @@ def http_retry(
             return future.set_exception(result.error)
 
         future.set_result(result)
+
+    def handle_exception(attempt, exception):
+        if isinstance(exception, retry_exceptions) and attempt <= attempts:
+            return ioloop.call_later(
+                retry_wait, lambda: _do_request(attempt))
+
+        return future.set_exception(exception)
 
     _do_request(attempt)
     return future
