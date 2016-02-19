@@ -1,4 +1,5 @@
 [![Build Status](https://secure.travis-ci.org/wpjunior/tornado-retry-client.png)](http://travis-ci.org/wpjunior/tornado-retry-client)
+[![PyPI version](https://badge.fury.io/py/tornado-retry-client.svg)](https://badge.fury.io/py/tornado-retry-client)
 
 # Tornado Retry Client
 Simple retry tornado http client

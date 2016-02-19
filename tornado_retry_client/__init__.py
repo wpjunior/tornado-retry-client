@@ -68,7 +68,7 @@ def http_retry(
 
     def handle_response(attempt, result):
         if result.error:
-            logging.error(
+            logging.warning(
                 u'attempt: %d, %s request failed: %s, body: %s',
                 attempt, result.effective_url, result.error, result.body)
 
@@ -84,7 +84,7 @@ def http_retry(
         future.set_result(result)
 
     def handle_exception(attempt, exception):
-        logging.error(
+        logging.warning(
             u'attempt: %d, request failed by exception: %s',
             attempt, exception)
         if isinstance(exception, retry_exceptions) and attempt <= attempts:
