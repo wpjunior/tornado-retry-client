@@ -27,6 +27,7 @@ setup(
             'coverage',
             'flake8',
             'yanc',
+            'bumpversion',
         ]
     }
 )

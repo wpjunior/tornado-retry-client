@@ -25,3 +25,12 @@ autopep8:
 
 upload:
 	python ./setup.py sdist upload -r pypi
+
+bump bump_patch:
+	bumpversion patch
+
+bump_minor:
+	bumpversion minor
+
+bump_major:
+	bumpversion minor
