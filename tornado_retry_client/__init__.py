@@ -26,21 +26,17 @@ class RetryClient(object):
         else:
             self.http_client = AsyncHTTPClient()
 
-        self.logger = logging.getLogger('RetryClient')
-
         self.max_retries = max_retries
         self.max_retry_timeout = max_retry_timeout
         self.retry_start_timeout = retry_start_timeout
         self.retry_exceptions = retry_exceptions
 
-    def fetch(self, request, *args, **kwargs):
-        return http_retry(
-            self.http_client,
-            request,
-            retry_wait=self.retry_start_timeout,
-            attempts=self.max_retries,
-            retry_exceptions=self.retry_exceptions,
-        )
+    def fetch(self, request, **kwargs):
+        kwargs.setdefault('retry_wait', self.retry_start_timeout)
+        kwargs.setdefault('attempts', self.max_retries)
+        kwargs.setdefault('retry_exceptions', self.retry_exceptions)
+
+        return http_retry(self.http_client, request, **kwargs)
 
 
 def http_retry(
