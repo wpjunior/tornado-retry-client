@@ -25,6 +25,8 @@ autopep8:
 
 upload:
 	python ./setup.py sdist upload -r pypi
+	git push
+	git push --tags
 
 bump bump_patch:
 	bumpversion patch
