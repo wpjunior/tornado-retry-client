@@ -70,7 +70,7 @@ def http_retry(
         if result.error:
             logging.warning(
                 u'attempt: %d, %s request failed: %s, body: %s',
-                attempt, result.effective_url, result.error, result.body)
+                attempt, result.effective_url, result.error, repr(result.body))
 
             if attempt <= attempts and\
                result.code >= 500 and\
