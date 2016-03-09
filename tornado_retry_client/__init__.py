@@ -43,7 +43,7 @@ def http_retry(
         client, request,
         raise_error=True, attempts=5,
         retry_wait=1, retry_exceptions=None, **kwargs):
-    attempt = 1
+    attempt = 0
     future = TracebackFuture()
     ioloop = IOLoop.current()
 
@@ -68,7 +68,7 @@ def http_retry(
                 u'attempt: %d, %s request failed: %s, body: %s',
                 attempt, result.effective_url, result.error, repr(result.body))
 
-            if attempt <= attempts and\
+            if attempt < attempts and\
                result.code >= 500 and\
                result.code <= 599:
                 return ioloop.call_later(
@@ -81,9 +81,9 @@ def http_retry(
 
     def handle_exception(attempt, exception):
         logging.warning(
-            u'attempt: %d, request failed by exception: %s',
+            u'attempt: %d, request failed with exception: %s',
             attempt, exception)
-        if isinstance(exception, retry_exceptions) and attempt <= attempts:
+        if isinstance(exception, retry_exceptions) and attempt < attempts:
             return ioloop.call_later(
                 retry_wait, lambda: _do_request(attempt))
 
