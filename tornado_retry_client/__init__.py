@@ -81,7 +81,7 @@ def http_retry(
 
     def handle_exception(attempt, exception):
         logging.warning(
-            u'attempt: %d, request failed by exception: %s',
+            u'attempt: %d, request failed with exception: %s',
             attempt, exception)
         if isinstance(exception, retry_exceptions) and attempt <= attempts:
             return ioloop.call_later(
