@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from mock import patch
+from mock import patch, MagicMock
 
 import tornado.httpclient
 from tornado.testing import AsyncHTTPTestCase, gen_test
@@ -14,10 +14,12 @@ class TestRetryClient(AsyncHTTPTestCase):
 
     def setUp(self):
         super(TestRetryClient, self).setUp()
+        self.logger = MagicMock()
         self.retry_client = RetryClient(
             self.http_client,
             max_retries=5,
-            retry_start_timeout=0
+            retry_start_timeout=0,
+            logger=self.logger,
         )
 
     def get_app(self):
@@ -45,14 +47,20 @@ class TestRetryClient(AsyncHTTPTestCase):
                 yield self.retry_client.fetch(self.get_url('/timeout'))
 
         self.assertEqual(cm.exception.args[0], 599)
-        self.assertEqual(cm.exception.args[1], 'Timeout')
-
+        self.assertEqual(cm.exception.args[1], 'Timeout during request')
         self.assertEqual(fetch_mock.call_count, 5)
+
+        self.assertTrue(self.logger.warning.called)
+        self.assertEqual(
+            self.logger.warning.call_args[0][0],
+            'attempt: %d, %s request failed: %s, body: %s'
+        )
 
     @gen_test
     def test_http_success(self):
         response = yield self.retry_client.fetch(self.get_url('/'))
         self.assertEqual(response.code, 200)
+        self.assertFalse(self.logger.warning.called)
 
     @gen_test
     def test_http_error_with_retry(self):
@@ -71,6 +79,7 @@ class TestRetryClient(AsyncHTTPTestCase):
 
         self.assertEqual(cm.exception.code, 422)
         self.assertEqual(fetch_mock.call_count, 1)
+        self.assertTrue(self.logger.warning.called)
 
     @gen_test
     def test_http_error_with_retry2(self):
@@ -89,6 +98,7 @@ class TestRetryClient(AsyncHTTPTestCase):
 
         self.assertEqual(cm.exception.code, 500)
         self.assertEqual(fetch_mock.call_count, 5)
+        self.assertTrue(self.logger.warning.called)
 
     @gen_test
     def test_custom_http_client_error(self):
@@ -118,3 +128,4 @@ class TestRetryClient(AsyncHTTPTestCase):
             )
 
         self.assertEqual(http_client.count, 5)
+        self.assertTrue(self.logger.warning.called)
