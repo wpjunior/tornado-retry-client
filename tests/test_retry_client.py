@@ -20,6 +20,7 @@ class TestRetryClient(AsyncHTTPTestCase):
             max_retries=5,
             retry_start_timeout=0,
             logger=self.logger,
+            retry_for_statuses=(408,),
         )
 
     def get_app(self):
@@ -79,7 +80,24 @@ class TestRetryClient(AsyncHTTPTestCase):
 
         self.assertEqual(cm.exception.code, 422)
         self.assertEqual(fetch_mock.call_count, 1)
-        self.assertTrue(self.logger.warning.called)
+
+    @gen_test
+    def test_http_error_with_retry_with_custom_code(self):
+        self.retry_client.http_client = tornado.httpclient.AsyncHTTPClient(
+            force_instance=True,
+            defaults=dict(request_timeout=.1)
+        )
+
+        with patch.object(
+            self.retry_client.http_client,
+            'fetch',
+            wraps=self.retry_client.http_client.fetch
+        ) as fetch_mock:
+            with self.assertRaises(tornado.httpclient.HTTPError) as cm:
+                yield self.retry_client.fetch(self.get_url('/custom_retry'))
+
+        self.assertEqual(cm.exception.code, 408)
+        self.assertEqual(fetch_mock.call_count, 5)
 
     @gen_test
     def test_http_error_with_retry2(self):

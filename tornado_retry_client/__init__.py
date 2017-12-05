@@ -19,6 +19,7 @@ class RetryClient(object):
     def __init__(self, http_client=None, max_retries=MAX_RETRIES,
                  max_retry_timeout=MAX_RETRY_TIMEOUT,
                  retry_start_timeout=RETRY_START_TIMEOUT,
+                 retry_for_statuses=None,
                  retry_exceptions=None,
                  logger=None):
 
@@ -31,6 +32,7 @@ class RetryClient(object):
         self.max_retry_timeout = max_retry_timeout
         self.retry_start_timeout = retry_start_timeout
         self.retry_exceptions = retry_exceptions
+        self.retry_for_statuses = retry_for_statuses
         self.logger = logger
 
     def fetch(self, request, **kwargs):
@@ -38,6 +40,7 @@ class RetryClient(object):
         kwargs.setdefault('attempts', self.max_retries)
         kwargs.setdefault('retry_exceptions', self.retry_exceptions)
         kwargs.setdefault('logger', self.logger)
+        kwargs.setdefault('retry_for_statuses', self.retry_for_statuses)
 
         return http_retry(self.http_client, request, **kwargs)
 
@@ -45,13 +48,18 @@ class RetryClient(object):
 def http_retry(
         client, request,
         raise_error=True, attempts=5,
-        retry_wait=1, retry_exceptions=None, logger=None, **kwargs):
+        retry_wait=1, retry_exceptions=None,
+        retry_for_statuses=None,
+        logger=None, **kwargs):
     attempt = 0
     future = TracebackFuture()
     ioloop = IOLoop.current()
 
     if not retry_exceptions:
         retry_exceptions = ()
+
+    if not retry_for_statuses:
+        retry_for_statuses = ()
 
     if not logger:
         logger = logging.getLogger('RetryClient')
@@ -68,17 +76,20 @@ def http_retry(
 
         handle_response(attempt, future_response.result())
 
+    def check_code(code):
+        return code >= 500 and code <= 599 or code in retry_for_statuses
+
     def handle_response(attempt, result):
-        if result.error:
+        if result.error and attempt < attempts and check_code(result.code):
             logger.warning(
                 u'attempt: %d, %s request failed: %s, body: %s',
-                attempt, result.effective_url, result.error, repr(result.body))
-
-            if attempt < attempts and\
-               result.code >= 500 and\
-               result.code <= 599:
-                return ioloop.call_later(
-                    retry_wait, lambda: _do_request(attempt))
+                attempt,
+                result.effective_url,
+                result.error,
+                repr(result.body),
+            )
+            return ioloop.call_later(
+                retry_wait, lambda: _do_request(attempt))
 
         if raise_error and result.error:
             return future.set_exception(result.error)
