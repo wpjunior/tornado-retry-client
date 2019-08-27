@@ -4,7 +4,7 @@ from setuptools import find_packages, setup
 
 setup(
     name='tornado-retry-client',
-    version='0.6.0',
+    version='0.6.1',
     description='Simple retry tornado http client',
     long_description='',
     classifiers=[],
