@@ -43,7 +43,7 @@ class TestRetryClient(AsyncHTTPTestCase):
                 yield self.retry_client.fetch(self.get_url("/timeout"))
 
         self.assertEqual(cm.exception.args[0], 599)
-        self.assertEqual(cm.exception.args[1], "Timeout during request")
+        self.assertTrue("Timeout" in cm.exception.args[1])
         self.assertEqual(fetch_mock.call_count, 5)
 
         self.assertTrue(self.logger.warning.called)
