@@ -16,15 +16,16 @@ class TestRetryFunction(AsyncHTTPTestCase):
     @gen_test
     def test_success(self):
         response = yield tornado_retry_client.http_retry(
-            self.get_http_client(), self.get_url('/')
+            self.get_http_client(), self.get_url("/")
         )
         self.assertEqual(response.code, 200)
 
     @gen_test
     def test_success_after_retry(self):
         response = yield tornado_retry_client.http_retry(
-            self.get_http_client(), self.get_url('/error_sometimes'),
-            retry_wait=.1
+            self.get_http_client(),
+            self.get_url("/error_sometimes"),
+            retry_start_timeout=0.1,
         )
         self.assertEqual(response.code, 200)
         self.assertEqual(app.COUNTER, 5)
@@ -32,22 +33,20 @@ class TestRetryFunction(AsyncHTTPTestCase):
     @gen_test
     def test_error(self):
         response = yield tornado_retry_client.http_retry(
-            self.get_http_client(), self.get_url('/error'),
-            retry_wait=.1,
-            raise_error=False
+            self.get_http_client(),
+            self.get_url("/error"),
+            retry_start_timeout=0.1,
+            raise_error=False,
         )
         self.assertEqual(response.code, 500)
 
     @gen_test
     def test_timeout_error(self):
         client = tornado.httpclient.AsyncHTTPClient(
-            force_instance=True,
-            defaults=dict(request_timeout=.1)
+            force_instance=True, defaults=dict(request_timeout=0.1)
         )
         response = yield tornado_retry_client.http_retry(
-            client, self.get_url('/timeout'),
-            retry_wait=.1,
-            raise_error=False
+            client, self.get_url("/timeout"), retry_start_timeout=0.1, raise_error=False
         )
         self.assertEqual(response.code, 599)
 
@@ -55,8 +54,7 @@ class TestRetryFunction(AsyncHTTPTestCase):
     def test_raise_error(self):
         with self.assertRaises(tornado.httpclient.HTTPError):
             yield tornado_retry_client.http_retry(
-                self.get_http_client(), self.get_url('/error'),
-                retry_wait=.1
+                self.get_http_client(), self.get_url("/error"), retry_start_timeout=0.1
             )
 
     @gen_test
@@ -70,7 +68,7 @@ class TestRetryFunction(AsyncHTTPTestCase):
 
             def fetch(self, *args, **kwargs):
                 future = tornado.gen.Future()
-                future.set_exception(TokenError('my token error'))
+                future.set_exception(TokenError("my token error"))
                 self.count += 1
                 return future
 
@@ -78,9 +76,10 @@ class TestRetryFunction(AsyncHTTPTestCase):
 
         with self.assertRaises(TokenError):
             yield tornado_retry_client.http_retry(
-                http_client, self.get_url('/'),
-                retry_wait=.1,
-                retry_exceptions=(TokenError,)
+                http_client,
+                self.get_url("/"),
+                retry_start_timeout=0.1,
+                retry_exceptions=(TokenError,),
             )
 
         self.assertEqual(http_client.count, 5)

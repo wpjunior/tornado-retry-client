@@ -16,16 +16,15 @@ class ErrorHandler(tornado.web.RequestHandler):
 
 class NonRetryableErrorHandler(tornado.web.RequestHandler):
     def get(self):
-        self.set_status(422, 'Unprocessable Entity')
+        self.set_status(422, "Unprocessable Entity")
 
 
 class CustomRetryableErrorHandler(tornado.web.RequestHandler):
     def get(self):
-        self.set_status(408, 'Timeout')
+        self.set_status(408, "Timeout")
 
 
 class TimeoutHandler(tornado.web.RequestHandler):
-
     @tornado.gen.coroutine
     def get(self):
         yield tornado.gen.sleep(10)
@@ -44,11 +43,13 @@ class ErrorSometimesHandler(tornado.web.RequestHandler):
 def make_app():
     global COUNTER
     COUNTER = 0
-    return tornado.web.Application([
-        (r"/", MainHandler),
-        (r"/error", ErrorHandler),
-        (r"/error_sometimes", ErrorSometimesHandler),
-        (r"/error_no_retry", NonRetryableErrorHandler),
-        (r"/timeout", TimeoutHandler),
-        (r"/custom_retry", CustomRetryableErrorHandler),
-    ])
+    return tornado.web.Application(
+        [
+            (r"/", MainHandler),
+            (r"/error", ErrorHandler),
+            (r"/error_sometimes", ErrorSometimesHandler),
+            (r"/error_no_retry", NonRetryableErrorHandler),
+            (r"/timeout", TimeoutHandler),
+            (r"/custom_retry", CustomRetryableErrorHandler),
+        ]
+    )
